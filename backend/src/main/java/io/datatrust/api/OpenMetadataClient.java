@@ -9,7 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -54,9 +57,11 @@ public class OpenMetadataClient {
 
     private void authenticate(String user, String password) {
         try {
+            // OM 1.12+ requires base64-encoded password
+            var encodedPwd = Base64.getEncoder().encodeToString(password.getBytes());
             var payload = mapper.createObjectNode()
                     .put("email", user)
-                    .put("password", password);
+                    .put("password", encodedPwd);
 
             var body = RequestBody.create(mapper.writeValueAsString(payload), JSON_TYPE);
             var req = new Request.Builder()
@@ -82,7 +87,7 @@ public class OpenMetadataClient {
      * Automatically paginates through the full result set.
      */
     public List<JsonNode> listAllTables() {
-        var fields = "owner,owners,tags,columns,profile,tableConstraints";
+        var fields = "owners,tags,columns,profile";
         return paginatedGet("/api/v1/tables", fields);
     }
 
@@ -92,8 +97,9 @@ public class OpenMetadataClient {
     public List<JsonNode> getTestCasesForTable(String tableFqn) {
         var results = new ArrayList<JsonNode>();
         var entityLink = "<#E::table::" + tableFqn + ">";
+        var encoded = URLEncoder.encode(entityLink, StandardCharsets.UTF_8);
         var url = baseUrl + "/api/v1/dataQuality/testCases?entityLink="
-                + entityLink + "&limit=" + PAGE_SIZE + "&include=all";
+                + encoded + "&limit=" + PAGE_SIZE + "&include=all";
         try {
             var json = doGet(url);
             if (json != null && json.has("data") && json.get("data").isArray()) {
@@ -124,7 +130,7 @@ public class OpenMetadataClient {
      * Fetch a specific table by ID.
      */
     public JsonNode getTable(String tableId) {
-        var url = baseUrl + "/api/v1/tables/" + tableId + "?fields=owner,owners,tags,columns,profile";
+        var url = baseUrl + "/api/v1/tables/" + tableId + "?fields=owners,tags,columns,profile";
         try {
             return doGet(url);
         } catch (Exception e) {

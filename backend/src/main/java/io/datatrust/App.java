@@ -32,13 +32,15 @@ public class App {
 
         // Config from environment (with sensible defaults for local dev)
         var omUrl = env("OM_SERVER_URL", "http://localhost:8585");
-        var omUser = env("OM_USER", "admin");
+        var omUser = env("OM_USER", "admin@open-metadata.org");
         var omPassword = env("OM_PASSWORD", "admin");
         var omToken = env("OM_BOT_TOKEN", null);
         var port = Integer.parseInt(env("PORT", "4000"));
         var dbPath = env("DB_PATH", "datatrust.db");
         var interval = Integer.parseInt(env("SCORING_INTERVAL_MINUTES", "5"));
-        var dashboardPath = env("DASHBOARD_PATH", "../dashboard");
+        var dashboardConfigured = env("DASHBOARD_PATH", null);
+        final var dashboardPath = dashboardConfigured != null ? dashboardConfigured
+                : (new java.io.File("dashboard").isDirectory() ? "dashboard" : "../dashboard");
 
         // Build the OpenMetadata client
         OpenMetadataClient omClient;
