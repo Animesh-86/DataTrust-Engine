@@ -1,0 +1,111 @@
+version: "3.9"
+
+# ── DataTrust Engine — Full Stack Deployment ──────────────────
+# Spins up OpenMetadata + DataTrust Engine in one command.
+#
+#   docker compose up -d
+#
+# Then open http://localhost:4000 for the Trust Dashboard
+# and http://localhost:8585 for the OpenMetadata UI.
+
+services:
+
+  # ──── OpenMetadata Dependencies ────
+
+  mysql:
+    image: docker.getcollate.io/openmetadata/db:1.12.5
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - om-net
+    healthcheck:
+      test: "mysqladmin ping -h localhost"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9201:9200"
+    networks:
+      - om-net
+    healthcheck:
+      test: "curl -s http://localhost:9200/_cluster/health | grep -qE 'green|yellow'"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ──── OpenMetadata Server ────
+
+  openmetadata-server:
+    image: docker.getcollate.io/openmetadata/server:1.12.5
+    environment:
+      OPENMETADATA_CLUSTER_NAME: openmetadata
+      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      SERVER_ADMIN_PORT: 8586
+      DB_HOST: mysql
+      DB_PORT: 3306
+      SEARCH_TYPE: elasticsearch
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_SCHEME: http
+    depends_on:
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "8585:8585"
+    networks:
+      - om-net
+    healthcheck:
+      test: "curl -s http://localhost:8585/api/v1/system/version | grep -q version"
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+
+  # ──── DataTrust Engine ────
+
+  datatrust-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      OM_SERVER_URL: http://openmetadata-server:8585
+      OM_USER: admin
+      OM_PASSWORD: admin
+      PORT: 4000
+      SCORING_INTERVAL_MINUTES: 5
+      DB_PATH: /app/data/datatrust.db
+      DASHBOARD_PATH: /app/dashboard
+    depends_on:
+      openmetadata-server:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    volumes:
+      - trust-data:/app/data
+    networks:
+      - om-net
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  es-data:
+  trust-data:
+
+networks:
+  om-net:
+    driver: bridge
