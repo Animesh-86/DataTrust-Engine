@@ -155,6 +155,44 @@
         </div><!-- /bento -->
     </main>
 
+    <!-- Asset Detail Slide-out Panel -->
+    <div class="detail-overlay" id="detailOverlay"></div>
+    <aside class="detail-panel" id="detailPanel">
+        <div class="dp-header">
+            <div>
+                <div class="dp-title" id="dpTitle">—</div>
+                <div class="dp-fqn" id="dpFqn">—</div>
+            </div>
+            <button class="tm-close" id="dpClose">✕</button>
+        </div>
+
+        <div class="dp-score-row">
+            <div class="dp-score-big" id="dpScore">—</div>
+            <div class="dp-grade-big" id="dpGrade">—</div>
+            <div class="dp-trend" id="dpTrend"></div>
+        </div>
+
+        <div class="dp-section">
+            <div class="dp-section-title">Signal Breakdown</div>
+            <div id="dpSignals"></div>
+        </div>
+
+        <div class="dp-section">
+            <div class="dp-section-title">Governance Checklist</div>
+            <div id="dpGovChecks"></div>
+        </div>
+
+        <div class="dp-section">
+            <div class="dp-section-title">Recommendations</div>
+            <div id="dpRecs"></div>
+        </div>
+
+        <div class="dp-actions">
+            <a class="btn btn-fill" id="dpOmLink" href="#" target="_blank">View in OpenMetadata →</a>
+            <button class="btn btn-ghost" id="dpTrendBtn">View Trend</button>
+        </div>
+    </aside>
+
     <footer class="footer">
         <span>DataTrust Engine · OpenMetadata Hackathon</span>
         <span>Powered by <a href="https://open-metadata.org" target="_blank">OpenMetadata</a> · Custom Properties · Webhooks · Governance</span>

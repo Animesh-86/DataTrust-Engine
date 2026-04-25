@@ -241,8 +241,8 @@
         tbody.innerHTML = data.map(s => {
             const b = s.breakdown || {};
             const link = omUrl + '/table/' + encodeURIComponent(s.fullyQualifiedName);
-            return `<tr>
-                <td><a class="t-name" href="${escA(link)}" target="_blank">${esc(s.displayName || s.fullyQualifiedName)}</a><div class="t-fqn">${esc(s.fullyQualifiedName)}</div></td>
+            return `<tr class="t-row-click" data-fqn="${escA(s.fullyQualifiedName)}" style="cursor:pointer">
+                <td><a class="t-name">${esc(s.displayName || s.fullyQualifiedName)}</a><div class="t-fqn">${esc(s.fullyQualifiedName)}</div></td>
                 <td class="t-score" style="color:${col(s.overallScore)}">${s.overallScore.toFixed(1)}</td>
                 <td><span class="grade grade-${s.grade}">${s.grade}</span></td>
                 <td>${sig(b.quality)}</td>
@@ -250,11 +250,16 @@
                 <td>${sig(b.lineage)}</td>
                 <td>${sig(b.freshness)}</td>
                 <td class="t-actions">
-                    <button class="t-btn" onclick="window.__tm('${escA(s.fullyQualifiedName)}','${escA(s.displayName || s.fullyQualifiedName)}')">Trend</button>
-                    <a class="t-btn" href="${escA(link)}" target="_blank">OM↗</a>
+                    <button class="t-btn" onclick="event.stopPropagation();window.__tm('${escA(s.fullyQualifiedName)}','${escA(s.displayName || s.fullyQualifiedName)}')">Trend</button>
+                    <a class="t-btn" href="${escA(link)}" target="_blank" onclick="event.stopPropagation()">OM↗</a>
                 </td>
             </tr>`;
         }).join('');
+
+        // Attach click handlers for detail panel
+        tbody.querySelectorAll('.t-row-click').forEach(row => {
+            row.addEventListener('click', () => openDetail(row.dataset.fqn));
+        });
     }
 
     function sig(v) {
@@ -346,6 +351,118 @@
         });
     }
 
+    /* ---- Asset Detail Panel ---- */
+    const detailPanel = document.getElementById('detailPanel');
+    const detailOverlay = document.getElementById('detailOverlay');
+    
+    function closeDetail() {
+        detailPanel?.classList.remove('open');
+        detailOverlay?.classList.remove('open');
+    }
+    
+    document.getElementById('dpClose')?.addEventListener('click', closeDetail);
+    detailOverlay?.addEventListener('click', closeDetail);
+
+    async function openDetail(fqn) {
+        if (!fqn) return;
+        
+        // Open the panel immediately with loading state
+        detailPanel.classList.add('open');
+        detailOverlay.classList.add('open');
+        setText('dpTitle', 'Loading…');
+        setText('dpFqn', fqn);
+        setText('dpScore', '—');
+        
+        try {
+            const d = await get(`/api/scores/${encodeURIComponent(fqn)}/detail`);
+            
+            // Title & FQN
+            setText('dpTitle', d.displayName || d.fqn);
+            setText('dpFqn', d.fqn);
+            
+            // Score & Grade
+            const scoreEl = document.getElementById('dpScore');
+            scoreEl.textContent = d.overallScore.toFixed(1);
+            scoreEl.style.color = col(d.overallScore);
+            
+            const gradeEl = document.getElementById('dpGrade');
+            gradeEl.textContent = d.grade;
+            gradeEl.className = `dp-grade-big grade-${d.grade}`;
+            
+            // Trend
+            const trendEl = document.getElementById('dpTrend');
+            if (d.trend) {
+                const dir = d.trend.direction;
+                const arrow = dir === 'improving' ? '↑' : dir === 'declining' ? '↓' : '→';
+                const cls = dir === 'improving' ? 'up' : dir === 'declining' ? 'down' : 'flat';
+                trendEl.className = `dp-trend ${cls}`;
+                trendEl.textContent = `${arrow} ${Math.abs(d.trend.delta)} pts`;
+            } else {
+                trendEl.textContent = '';
+            }
+            
+            // Signal Breakdown
+            const sigContainer = document.getElementById('dpSignals');
+            const bk = d.breakdown;
+            const signals = [
+                { label: 'Quality', value: bk.quality, detail: bk.qualityDetail, weight: 35 },
+                { label: 'Governance', value: bk.governance, detail: bk.governanceDetail, weight: 25 },
+                { label: 'Lineage', value: bk.lineage, detail: bk.lineageDetail, weight: 25 },
+                { label: 'Freshness', value: bk.freshness, detail: bk.freshnessDetail, weight: 15 }
+            ];
+            sigContainer.innerHTML = signals.map(s => `
+                <div class="dp-sig">
+                    <span class="dp-sig-label">${s.label} <span style="font-size:.55rem;color:var(--text-3)">(${s.weight}%)</span></span>
+                    <div class="dp-sig-bar"><div class="dp-sig-fill" style="width:${Math.round(s.value)}%;background:${col(s.value)}"></div></div>
+                    <span class="dp-sig-val" style="color:${col(s.value)}">${Math.round(s.value)}</span>
+                </div>
+                ${s.detail ? `<div class="dp-sig-detail" style="padding-left:90px;margin-top:-2px;margin-bottom:4px">${esc(s.detail)}</div>` : ''}
+            `).join('');
+            
+            // Governance Checklist
+            const govContainer = document.getElementById('dpGovChecks');
+            if (d.governanceChecks && d.governanceChecks.length > 0) {
+                govContainer.innerHTML = d.governanceChecks.map(c => `
+                    <div class="dp-check">
+                        <div class="dp-check-icon ${c.passed ? 'pass' : 'fail'}">${c.passed ? '✓' : '✗'}</div>
+                        <span class="dp-check-label ${c.passed ? '' : 'fail'}">${esc(c.label)}</span>
+                    </div>
+                `).join('');
+            } else {
+                govContainer.innerHTML = '<div style="font-size:.75rem;color:var(--text-3)">No governance data available</div>';
+            }
+            
+            // Recommendations
+            const recContainer = document.getElementById('dpRecs');
+            if (d.recommendations && d.recommendations.length > 0) {
+                recContainer.innerHTML = d.recommendations.map(r => `
+                    <div class="dp-rec ${r.priority}">
+                        <span class="dp-rec-text">${esc(r.action)}</span>
+                        <span class="dp-rec-impact">${r.impact}</span>
+                    </div>
+                `).join('');
+            } else {
+                recContainer.innerHTML = '<div style="font-size:.75rem;color:var(--healthy);font-weight:600">✓ No recommendations — this asset is well-governed!</div>';
+            }
+            
+            // OM Link
+            document.getElementById('dpOmLink').href = d.omLink || '#';
+            
+            // Trend button
+            document.getElementById('dpTrendBtn').onclick = () => {
+                closeDetail();
+                window.__tm(d.fqn, d.displayName || d.fqn);
+            };
+            
+        } catch (e) {
+            setText('dpTitle', 'Error loading details');
+            console.error('Detail load failed:', e);
+        }
+    }
+    
+    // Expose for external use
+    window.__openDetail = openDetail;
+
     /* ---- Helpers ---- */
     function col(v) { return v >= 70 ? C.healthy : v >= 40 ? C.warn : C.danger; }
     function mean(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0; }
@@ -353,3 +470,4 @@
     function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function escA(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 })();
+

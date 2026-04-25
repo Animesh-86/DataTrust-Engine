@@ -39,10 +39,12 @@ public class TrustApiController {
         app.get("/api/scores/stats", this::getStats);
         app.get("/api/scores/{fqn}", this::getScoreByFqn);
         app.get("/api/scores/{fqn}/history", this::getHistory);
+        app.get("/api/scores/{fqn}/detail", this::getDetail);
 
         // Engine control
         app.post("/api/engine/run", this::triggerRun);
         app.get("/api/engine/status", this::getStatus);
+        app.get("/api/engine/weights", this::getWeights);
 
         // Health check
         app.get("/api/health", this::health);
@@ -89,6 +91,81 @@ public class TrustApiController {
     private void getStatus(Context ctx) {
         var status = engine.getEngineStatus();
         ctx.json(status);
+    }
+
+    private void getWeights(Context ctx) {
+        ctx.json(engine.getEngineStatus().get("weights"));
+    }
+
+    /**
+     * Rich detail endpoint for the asset detail panel.
+     * Returns score breakdown, governance checklist, lineage summary,
+     * quality details, and actionable recommendations.
+     */
+    private void getDetail(Context ctx) {
+        var fqn = ctx.pathParam("fqn").replace("%2E", ".");
+        var score = engine.getScoreForTable(fqn);
+        if (score == null) {
+            ctx.status(404).json(Map.of("error", "Not found"));
+            return;
+        }
+
+        var detail = new LinkedHashMap<String, Object>();
+        detail.put("fqn", fqn);
+        detail.put("displayName", score.displayName());
+        detail.put("overallScore", score.overallScore());
+        detail.put("grade", score.grade());
+        detail.put("breakdown", score.breakdown());
+        detail.put("computedAt", score.computedAt().toString());
+        detail.put("omLink", omServerUrl + "/table/" + fqn);
+
+        // Parse governance detail into checklist items
+        var govDetail = score.breakdown().governanceDetail();
+        if (govDetail != null) {
+            var checks = new java.util.ArrayList<Map<String, Object>>();
+            for (var part : govDetail.split(", ")) {
+                var passed = part.startsWith("✓");
+                checks.add(Map.of(
+                        "label", part.replaceAll("^[✓✗] ", ""),
+                        "passed", passed
+                ));
+            }
+            detail.put("governanceChecks", checks);
+        }
+
+        // Build recommendations
+        var recommendations = new java.util.ArrayList<Map<String, Object>>();
+        if (govDetail != null && govDetail.contains("✗ No owner"))
+            recommendations.add(Map.of("action", "Assign an owner", "impact", "+25 pts", "priority", "high"));
+        if (govDetail != null && govDetail.contains("✗ No description"))
+            recommendations.add(Map.of("action", "Add a table description", "impact", "+20 pts", "priority", "high"));
+        if (govDetail != null && govDetail.contains("✗ No tier"))
+            recommendations.add(Map.of("action", "Add a tier classification", "impact", "+15 pts", "priority", "medium"));
+        if (govDetail != null && govDetail.contains("✗ No domain"))
+            recommendations.add(Map.of("action", "Assign to a domain", "impact", "+8 pts", "priority", "medium"));
+        if (govDetail != null && govDetail.contains("✗ No glossary"))
+            recommendations.add(Map.of("action", "Apply glossary terms", "impact", "+7 pts", "priority", "low"));
+
+        var qualDetail = score.breakdown().qualityDetail();
+        if (qualDetail != null && qualDetail.contains("No tests"))
+            recommendations.add(Map.of("action", "Add data quality tests", "impact", "+15 pts", "priority", "high"));
+
+        detail.put("recommendations", recommendations);
+
+        // History summary
+        var history = engine.getHistory(fqn, 10);
+        if (!history.isEmpty()) {
+            var latest = history.get(0);
+            var oldest = history.get(history.size() - 1);
+            double trend = latest.overallScore() - oldest.overallScore();
+            detail.put("trend", Map.of(
+                    "direction", trend > 0 ? "improving" : trend < 0 ? "declining" : "stable",
+                    "delta", Math.round(trend * 10.0) / 10.0,
+                    "dataPoints", history.size()
+            ));
+        }
+
+        ctx.json(detail);
     }
 
     private void health(Context ctx) {
