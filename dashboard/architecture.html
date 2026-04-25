@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataTrust Architecture</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <style>
+        .arch-page { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+        .arch-header { text-align: center; margin-bottom: 3rem; }
+        .arch-header h1 { font-size: 2.5rem; color: var(--text); margin-bottom: 0.5rem; }
+        .arch-header p { font-size: 1.1rem; color: var(--text-2); }
+        
+        /* Layout Grid */
+        .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+        @media (max-width: 900px) { .arch-grid { grid-template-columns: 1fr; } }
+        
+        /* Explanation Cards */
+        .expl-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--r-md); padding: 1.5rem; margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .expl-card h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .expl-card h3 .badge { background: var(--primary-soft); color: var(--primary); padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.7rem; font-family: var(--mono); }
+        .expl-card p { font-size: 0.9rem; color: var(--text-2); line-height: 1.5; }
+        
+        /* Animated CSS Graph */
+        .graph-container {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+            padding: 3rem 2rem; position: relative; min-height: 500px;
+            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+        }
+        
+        .node {
+            background: var(--bg-inset); border: 2px solid var(--border);
+            border-radius: var(--r-md); padding: 1rem 1.5rem; width: 220px;
+            text-align: center; font-weight: 600; color: var(--text); z-index: 2;
+            position: relative; transition: all 0.3s;
+        }
+        .node.om { border-color: var(--primary); background: var(--primary-soft); }
+        .node.engine { border-color: var(--healthy); background: var(--healthy-soft); }
+        .node.alert { border-color: var(--danger); background: var(--danger-soft); }
+        
+        .path-group { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+        .path {
+            position: absolute; background: var(--border);
+        }
+        .path.vertical { width: 2px; left: 50%; top: 40px; bottom: 40px; transform: translateX(-50%); }
+        .path.horizontal { height: 2px; }
+        
+        /* Pulses */
+        .pulse {
+            position: absolute; width: 10px; height: 10px;
+            background: var(--primary); border-radius: 50%;
+            left: 50%; transform: translateX(-50%);
+            box-shadow: 0 0 10px var(--primary);
+            opacity: 0;
+        }
+        .pulse.red { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+        .pulse.green { background: var(--healthy); box-shadow: 0 0 10px var(--healthy); }
+        
+        /* Animations */
+        @keyframes flowDown {
+            0% { top: 20%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 45%; opacity: 0; }
+        }
+        @keyframes flowUp {
+            0% { top: 45%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 20%; opacity: 0; }
+        }
+        @keyframes alertFlow {
+            0% { top: 55%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 80%; opacity: 0; }
+        }
+        
+        .anim-1 { animation: flowDown 3s infinite 0s; } /* Webhook Trigger */
+        .anim-2 { animation: flowUp 3s infinite 0.5s; } /* Fetch Metadata */
+        .anim-3 { animation: flowUp 3s infinite 1.5s; } /* Writeback Score */
+        .anim-4 { animation: alertFlow 3s infinite 2.5s; } /* Trigger Alert */
+        
+        .btn-back { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; color: var(--text-2); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+        .btn-back:hover { color: var(--text); }
+        
+    </style>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">DT</div>
+            <span class="brand-name">DataTrust</span>
+            <span class="brand-badge">Architecture</span>
+        </div>
+        <div class="topbar-actions">
+            <a href="index.html" class="btn btn-ghost">Dashboard</a>
+        </div>
+    </header>
+
+    <main class="page arch-page">
+        <a href="index.html" class="btn-back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to Dashboard
+        </a>
+        
+        <div class="arch-header">
+            <h1>Deep Two-Way Integration</h1>
+            <p>See exactly how the DataTrust Engine interacts with OpenMetadata in real-time.</p>
+        </div>
+        
+        <div class="arch-grid">
+            
+            <!-- Left: Animated Graph -->
+            <div class="graph-container">
+                <div class="node om">
+                    <div>OpenMetadata</div>
+                    <div style="font-size:0.7rem; font-weight:400; opacity:0.8; margin-top:0.25rem;">(Source of Truth)</div>
+                </div>
+                
+                <div class="path-group">
+                    <!-- Single continuous line behind all nodes -->
+                    <div class="path vertical"></div>
+                    
+                    <!-- Pulses -->
+                    <div class="pulse anim-1"></div> <!-- Webhook down -->
+                    <div class="pulse green anim-2"></div> <!-- Fetch up -->
+                    <div class="pulse green anim-3"></div> <!-- Writeback up -->
+                    <div class="pulse red anim-4"></div> <!-- Alert down -->
+                </div>
+                
+                <div class="node engine">
+                    <div>DataTrust Engine</div>
+                    <div style="font-size:0.7rem; font-weight:400; opacity:0.8; margin-top:0.25rem;">(Scoring & Aggregation)</div>
+                </div>
+                
+                <div class="node alert">
+                    <div>Alerts & Auto-Tasks</div>
+                    <div style="font-size:0.7rem; font-weight:400; opacity:0.8; margin-top:0.25rem;">(Slack / OM Feed)</div>
+                </div>
+            </div>
+            
+            <!-- Right: Explanations -->
+            <div class="explanations">
+                <div class="expl-card">
+                    <h3>Event-Driven Trigger <span class="badge">Webhook</span></h3>
+                    <p>Instead of relying on slow polling intervals, DataTrust registers an <strong>OmEventSubscriber</strong>. When metadata changes in OpenMetadata (like adding an owner), OM instantly pings the engine to trigger a targeted rescore.</p>
+                </div>
+                
+                <div class="expl-card">
+                    <h3>Deep Metadata Fetch <span class="badge">API</span></h3>
+                    <p>The engine securely connects back to OpenMetadata using Bot Tokens to fetch dependencies. It parses the <strong>Lineage API</strong> for graph traversal, and the native <strong>Profiler API</strong> to extract granular row counts and null ratios.</p>
+                </div>
+                
+                <div class="expl-card">
+                    <h3>Score Writeback <span class="badge">JSON Patch</span></h3>
+                    <p>Trust scores aren't trapped in an external dashboard. The engine modifies the OM Schema using the Custom Properties API, and writes the `trustScore` and `trustGrade` directly into the OpenMetadata table entity using JSON Patch.</p>
+                </div>
+                
+                <div class="expl-card">
+                    <h3>Incident Response <span class="badge">Auto-Task</span></h3>
+                    <p>If a table's score drops below the Critical Threshold (e.g., 50/100), the engine acts. It automatically sends a webhook to Slack, and uses the OM Feed API to instantly create a <strong>Data Quality Task</strong> assigned to the table owner.</p>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <footer class="footer">
+        <span>DataTrust Engine · OpenMetadata Hackathon</span>
+        <span>Powered by <a href="https://open-metadata.org" target="_blank">OpenMetadata</a> · Custom Properties · Webhooks · Governance</span>
+    </footer>
+
+</body>
+</html>

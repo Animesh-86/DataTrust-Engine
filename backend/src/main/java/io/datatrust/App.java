@@ -64,8 +64,13 @@ public class App {
         // History store (SQLite)
         var store = new HistoryStore(dbPath);
 
+        // Alert Manager for tasks and slack
+        var slackWebhook = env("SLACK_WEBHOOK_URL", null);
+        var criticalThreshold = Double.parseDouble(env("CRITICAL_SCORE_THRESHOLD", "50.0"));
+        var alertManager = new io.datatrust.integration.AlertManager(omClient, slackWebhook, criticalThreshold);
+
         // Scoring engine
-        var engine = new TrustScoreEngine(omClient, store, interval);
+        var engine = new TrustScoreEngine(omClient, store, alertManager, interval);
 
         // ==== Deep Integration ====
 

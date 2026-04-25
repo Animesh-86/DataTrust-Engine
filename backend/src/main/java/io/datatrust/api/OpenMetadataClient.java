@@ -351,6 +351,29 @@ public class OpenMetadataClient {
         }
     }
 
+    /**
+     * Create a feed post (Conversation/Task) in OpenMetadata.
+     */
+    public void createFeedPost(String entityFqn, String message) throws IOException {
+        var payload = mapper.createObjectNode();
+        payload.put("about", "<#E::table::" + entityFqn + ">");
+        payload.put("message", message);
+
+        var body = RequestBody.create(mapper.writeValueAsString(payload), JSON_TYPE);
+        var req = new Request.Builder()
+                .url(baseUrl + "/api/v1/feed")
+                .header("Authorization", "Bearer " + jwtToken)
+                .post(body)
+                .build();
+
+        try (var resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful()) {
+                log.warn("createFeedPost returned {}: {}", resp.code(),
+                        resp.body() != null ? resp.body().string() : "");
+            }
+        }
+    }
+
     /** Get the base URL for generating deep links */
     public String getBaseUrl() { return baseUrl; }
 }

@@ -27,30 +27,28 @@ DataTrust Engine:
 
 ## Architecture
 
-```
-┌───────────────────────────────────────────────────────┐
-│               DataTrust Engine (:4000)                │
-│                                                       │
-│  ┌──────────┐   ┌────────────┐   ┌───────────────┐  │
-│  │ Collectors│──►│  Scoring   │──►│  REST API     │  │
-│  │           │   │  Engine    │   │  (Javalin)    │  │
-│  │ Quality   │   │            │   │               │  │
-│  │ Lineage   │   │ Weighted   │   │ GET /scores   │  │
-│  │ Governance│   │ Aggregator │   │ GET /history  │  │
-│  │ Freshness │   │            │   │ POST /run     │  │
-│  └─────┬─────┘   └────────────┘   └───────┬───────┘  │
-│        │                                    │          │
-│        │ OpenMetadata                      │ JSON     │
-│        │ REST APIs                         ▼          │
-│        ▼                           ┌──────────────┐  │
-│  ┌──────────┐                      │  Dashboard   │  │
-│  │ OM Server│                      │  (HTML/JS)   │  │
-│  │ :8585    │                      └──────────────┘  │
-│  └──────────┘                                        │
-│                    ┌──────────┐                      │
-│                    │  SQLite  │  ◄─ Trust History    │
-│                    └──────────┘                      │
-└───────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant OM as OpenMetadata
+    participant Engine as DataTrust Engine
+    participant DB as SQLite History
+    participant Alert as Slack / Tasks
+
+    OM--)Engine: Webhook: Metadata Changed
+    activate Engine
+    Engine->>OM: Fetch Lineage (Traverse Upstream)
+    Engine->>OM: Fetch Profiler Stats
+    Engine->>OM: Fetch Test Cases
+    Engine->>Engine: Compute Unified Trust Score (0-100)
+    Engine->>DB: Save to Time Machine
+    
+    alt Score < Critical Threshold
+        Engine->>Alert: Send Slack Alert
+        Engine->>OM: Auto-Create Task for Owner
+    end
+    
+    Engine->>OM: JSON Patch: Write `trustScore` custom property
+    deactivate Engine
 ```
 
 ## Signal Weights

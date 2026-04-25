@@ -31,10 +31,12 @@ public class TrustScoreEngine {
 
     private final int intervalMinutes;
     private OmCustomPropertyManager propertyManager;
+    private io.datatrust.integration.AlertManager alertManager;
 
-    public TrustScoreEngine(OpenMetadataClient client, HistoryStore store, int intervalMinutes) {
+    public TrustScoreEngine(OpenMetadataClient client, HistoryStore store, io.datatrust.integration.AlertManager alertManager, int intervalMinutes) {
         this.client = client;
         this.store = store;
+        this.alertManager = alertManager;
         this.intervalMinutes = intervalMinutes;
         this.aggregator = new ScoreAggregator();
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -103,6 +105,12 @@ public class TrustScoreEngine {
                 try {
                     var score = computeScore(asset);
                     scores.add(score);
+                    
+                    // Trigger alerts if necessary
+                    if (alertManager != null) {
+                        var oldScore = store.getLatest(asset.fullyQualifiedName());
+                        alertManager.evaluateScore(score, oldScore);
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to score {}: {}", asset.fullyQualifiedName(), e.getMessage());
                 }

@@ -90,6 +90,8 @@ services:
       SCORING_INTERVAL_MINUTES: 5
       DB_PATH: /app/data/datatrust.db
       DASHBOARD_PATH: /app/dashboard
+      SLACK_WEBHOOK_URL: "" # Add your webhook URL here to enable Slack alerts
+      CRITICAL_SCORE_THRESHOLD: "50.0"
     depends_on:
       openmetadata-server:
         condition: service_healthy
