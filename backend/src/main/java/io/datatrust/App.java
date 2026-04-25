@@ -7,6 +7,8 @@ import io.datatrust.api.OpenMetadataClient;
 import io.datatrust.api.TrustApiController;
 import io.datatrust.engine.HistoryStore;
 import io.datatrust.engine.TrustScoreEngine;
+import io.datatrust.integration.OmCustomPropertyManager;
+import io.datatrust.integration.OmEventSubscriber;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 import org.slf4j.Logger;
@@ -16,7 +18,8 @@ import org.slf4j.LoggerFactory;
  * DataTrust Engine — entry point.
  *
  * Spins up the scoring engine + REST API + serves the dashboard.
- * Configuration via environment variables for Docker-friendliness.
+ * Deep integration: registers custom properties in OM, subscribes
+ * to webhook events, and writes trust scores back to table entities.
  */
 public class App {
     private static final Logger log = LoggerFactory.getLogger(App.class);
@@ -41,6 +44,7 @@ public class App {
         var dashboardConfigured = env("DASHBOARD_PATH", null);
         final var dashboardPath = dashboardConfigured != null ? dashboardConfigured
                 : (new java.io.File("dashboard").isDirectory() ? "dashboard" : "../dashboard");
+        var engineUrl = env("ENGINE_URL", "http://localhost:" + port);
 
         // Build the OpenMetadata client
         OpenMetadataClient omClient;
@@ -63,6 +67,27 @@ public class App {
         // Scoring engine
         var engine = new TrustScoreEngine(omClient, store, interval);
 
+        // ==== Deep Integration ====
+
+        // 1. Custom Property Manager — register trust score properties on table type
+        var propertyManager = new OmCustomPropertyManager(omClient);
+        try {
+            propertyManager.ensureCustomProperties();
+            engine.setPropertyManager(propertyManager);
+            log.info("Custom properties writeback enabled");
+        } catch (Exception e) {
+            log.warn("Custom property registration failed (scoring continues): {}", e.getMessage());
+        }
+
+        // 2. Event Subscriber — webhook for real-time rescoring
+        var eventSubscriber = new OmEventSubscriber(omClient, engineUrl);
+        try {
+            eventSubscriber.subscribe();
+            log.info("Webhook event subscription active → {}", eventSubscriber.getCallbackUrl());
+        } catch (Exception e) {
+            log.warn("Event subscription failed (polling continues): {}", e.getMessage());
+        }
+
         // JSON mapper configured for Java time types
         var mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
@@ -77,8 +102,10 @@ public class App {
             }));
         });
 
-        // Register API routes
+        // Register API routes (with integration references)
         var api = new TrustApiController(engine, omUrl);
+        api.setPropertyManager(propertyManager);
+        api.setEventSubscriber(eventSubscriber);
         api.register(app);
 
         // Graceful shutdown
@@ -92,8 +119,10 @@ public class App {
         app.start(port);
         engine.start();
 
-        log.info("Dashboard: http://localhost:{}", port);
-        log.info("API:       http://localhost:{}/api/scores", port);
+        log.info("Dashboard:    http://localhost:{}", port);
+        log.info("API:          http://localhost:{}/api/scores", port);
+        log.info("Integration:  http://localhost:{}/api/integration/status", port);
+        log.info("Webhook:      http://localhost:{}/api/webhook/om", port);
     }
 
     private static String env(String key, String fallback) {

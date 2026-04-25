@@ -2,6 +2,7 @@ package io.datatrust.engine;
 
 import io.datatrust.api.OpenMetadataClient;
 import io.datatrust.collectors.*;
+import io.datatrust.integration.OmCustomPropertyManager;
 import io.datatrust.model.AssetInfo;
 import io.datatrust.model.TrustScore;
 import org.slf4j.Logger;
@@ -14,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The heart of DataTrust — orchestrates signal collection,
- * score computation, and persistence on a scheduled loop.
+ * score computation, persistence, and OM writeback on a scheduled loop.
  */
 public class TrustScoreEngine {
     private static final Logger log = LoggerFactory.getLogger(TrustScoreEngine.class);
@@ -29,6 +30,7 @@ public class TrustScoreEngine {
     private final AtomicReference<String> lastRunStatus = new AtomicReference<>("never");
 
     private final int intervalMinutes;
+    private OmCustomPropertyManager propertyManager;
 
     public TrustScoreEngine(OpenMetadataClient client, HistoryStore store, int intervalMinutes) {
         this.client = client;
@@ -48,6 +50,11 @@ public class TrustScoreEngine {
                 new LineageCollector(client),
                 new FreshnessCollector()
         );
+    }
+
+    /** Set the custom property manager for OM writeback */
+    public void setPropertyManager(OmCustomPropertyManager mgr) {
+        this.propertyManager = mgr;
     }
 
     /**
@@ -101,9 +108,18 @@ public class TrustScoreEngine {
                 }
             }
 
-            // 4) Persist
+            // 4) Persist locally
             store.saveBatch(scores);
             latestScores.set(Collections.unmodifiableList(scores));
+
+            // 5) Write scores back to OpenMetadata custom properties
+            if (propertyManager != null && propertyManager.isReady()) {
+                try {
+                    propertyManager.writeBackScores(scores);
+                } catch (Exception e) {
+                    log.warn("Writeback to OM failed: {}", e.getMessage());
+                }
+            }
 
             long elapsed = System.currentTimeMillis() - startTime;
             log.info("=== Scored {} tables in {}ms ===", scores.size(), elapsed);

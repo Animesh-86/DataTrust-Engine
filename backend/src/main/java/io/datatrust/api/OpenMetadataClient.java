@@ -223,4 +223,134 @@ public class OpenMetadataClient {
             return mapper.readTree(bodyStr);
         }
     }
+
+    // ==== Deep Integration APIs ====
+
+    /**
+     * Fetch entity type definition by name (e.g., "table").
+     * Used to register custom properties on entity types.
+     */
+    public JsonNode getTypeByName(String typeName) {
+        var url = baseUrl + "/api/v1/metadata/types/name/" + typeName + "?fields=customProperties";
+        try {
+            return doGet(url);
+        } catch (Exception e) {
+            log.warn("Failed to fetch type '{}': {}", typeName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Fetch a property type reference by name (e.g., "integer", "string", "dateTime").
+     */
+    public JsonNode getPropertyType(String propertyTypeName) {
+        var url = baseUrl + "/api/v1/metadata/types/name/" + propertyTypeName;
+        try {
+            return doGet(url);
+        } catch (Exception e) {
+            log.debug("Property type '{}' not found: {}", propertyTypeName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Add or update a custom property on an entity type.
+     * PUT /api/v1/metadata/types/{id} with CustomProperty body.
+     */
+    public void addCustomProperty(String typeId, JsonNode propertyPayload) throws IOException {
+        var body = RequestBody.create(mapper.writeValueAsString(propertyPayload), JSON_TYPE);
+        var req = new Request.Builder()
+                .url(baseUrl + "/api/v1/metadata/types/" + typeId)
+                .header("Authorization", "Bearer " + jwtToken)
+                .put(body)
+                .build();
+
+        try (var resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful()) {
+                log.debug("addCustomProperty returned {}: {}", resp.code(),
+                        resp.body() != null ? resp.body().string() : "");
+            }
+        }
+    }
+
+    /**
+     * Patch a table's extension field with trust score data.
+     * Uses JSON Patch to set custom property values.
+     * Sends a single "add" on /extension with the full object.
+     */
+    public void patchTableExtension(String tableId, JsonNode extensionData) throws IOException {
+        var patchOps = mapper.createArrayNode();
+
+        // Single "add" op that replaces/creates the whole extension map
+        var op = mapper.createObjectNode();
+        op.put("op", "add");
+        op.put("path", "/extension");
+        op.set("value", extensionData);
+        patchOps.add(op);
+
+        var body = RequestBody.create(mapper.writeValueAsString(patchOps),
+                MediaType.get("application/json-patch+json"));
+        var req = new Request.Builder()
+                .url(baseUrl + "/api/v1/tables/" + tableId)
+                .header("Authorization", "Bearer " + jwtToken)
+                .patch(body)
+                .build();
+
+        try (var resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful() && resp.code() != 400) {
+                log.debug("patchTableExtension for {} returned {}", tableId, resp.code());
+            }
+        }
+    }
+
+    /**
+     * Get an event subscription by name.
+     */
+    public JsonNode getEventSubscription(String name) {
+        var url = baseUrl + "/api/v1/events/subscriptions/name/" + name;
+        try {
+            return doGet(url);
+        } catch (Exception e) {
+            log.debug("Event subscription '{}' not found", name);
+            return null;
+        }
+    }
+
+    /**
+     * Create a new event subscription (webhook).
+     */
+    public JsonNode createEventSubscription(JsonNode payload) throws IOException {
+        var body = RequestBody.create(mapper.writeValueAsString(payload), JSON_TYPE);
+        var req = new Request.Builder()
+                .url(baseUrl + "/api/v1/events/subscriptions")
+                .header("Authorization", "Bearer " + jwtToken)
+                .post(body)
+                .build();
+
+        try (var resp = http.newCall(req).execute()) {
+            if (resp.isSuccessful() && resp.body() != null) {
+                return mapper.readTree(resp.body().string());
+            }
+            log.warn("createEventSubscription returned {}", resp.code());
+            return null;
+        }
+    }
+
+    /**
+     * Fetch Data Insights aggregate data.
+     */
+    public JsonNode getDataInsights(String dataReportIndex, long startTs, long endTs) {
+        var url = baseUrl + "/api/v1/analytics/dataInsights/data"
+                + "?dataReportIndex=" + dataReportIndex
+                + "&startTs=" + startTs + "&endTs=" + endTs;
+        try {
+            return doGet(url);
+        } catch (Exception e) {
+            log.debug("Data insights not available: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Get the base URL for generating deep links */
+    public String getBaseUrl() { return baseUrl; }
 }

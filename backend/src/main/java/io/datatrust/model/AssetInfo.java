@@ -1,11 +1,11 @@
 package io.datatrust.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.List;
 
 /**
  * Lightweight view of an OpenMetadata table entity.
- * We only keep what we need for score calculation — no bloat.
+ * Extracts all governance-relevant signals from the raw API payload
+ * including deep-integration features: domain, glossary, votes.
  */
 public record AssetInfo(
     String id,
@@ -17,6 +17,9 @@ public record AssetInfo(
     String tier,
     int totalColumns,
     int describedColumns,
+    boolean hasDomain,
+    boolean hasGlossaryTerms,
+    int voteCount,
     JsonNode profileData,
     JsonNode rawJson
 ) {
@@ -39,12 +42,17 @@ public record AssetInfo(
 
         // Tier is nested in tags
         String tier = null;
+        boolean hasGlossary = false;
         if (node.has("tags") && node.get("tags").isArray()) {
             for (var tag : node.get("tags")) {
                 var tagFqn = tag.path("tagFQN").asText("");
                 if (tagFqn.startsWith("Tier.")) {
                     tier = tagFqn;
-                    break;
+                }
+                // Glossary terms have source "Glossary"
+                var source = tag.path("source").asText("");
+                if ("Glossary".equalsIgnoreCase(source)) {
+                    hasGlossary = true;
                 }
             }
         }
@@ -59,10 +67,22 @@ public record AssetInfo(
             }
         }
 
+        // Domain assignment (OM governance feature)
+        boolean hasDomain = node.has("domain") && !node.get("domain").isNull()
+                && node.get("domain").has("id");
+
+        // Community votes (OM social feature)
+        int votes = 0;
+        if (node.has("votes")) {
+            var votesNode = node.get("votes");
+            votes = votesNode.path("upVotes").asInt(0);
+        }
+
         var profile = node.has("profile") ? node.get("profile") : null;
 
         return new AssetInfo(id, fqn, name, serviceType,
                 hasOwner, hasDesc, tier, totalCols, describedCols,
+                hasDomain, hasGlossary, votes,
                 profile, node);
     }
 }

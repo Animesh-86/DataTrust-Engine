@@ -4,140 +4,160 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DataTrust Engine — Trust Scores for Your Data</title>
-    <meta name="description" content="Real-time trust scoring for OpenMetadata data assets">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta name="description" content="Real-time trust scoring engine deeply integrated with OpenMetadata. Scores governance, quality, lineage, and freshness of every data asset.">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 </head>
 <body>
-    <!-- Top nav -->
+
     <header class="topbar">
-        <div class="topbar-left">
-            <div class="logo">
-                <span class="logo-icon">🛡️</span>
-                <span class="logo-text">DataTrust</span>
-                <span class="logo-tag">Engine</span>
-            </div>
+        <div class="brand">
+            <div class="brand-mark">DT</div>
+            <span class="brand-name">DataTrust</span>
+            <span class="brand-badge">Engine</span>
         </div>
-        <div class="topbar-right">
-            <div class="connection-badge" id="connectionBadge">
-                <span class="pulse"></span>
-                <span class="conn-text">Connecting...</span>
+        <div class="topbar-actions">
+            <div class="chip" id="connChip">
+                <span class="chip-dot off"></span>
+                <span class="chip-label">Connecting…</span>
             </div>
-            <button class="btn-refresh" id="btnRefresh" title="Trigger scoring run">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M23 4v6h-6M1 20v-6h6"/>
-                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                </svg>
+            <button class="btn btn-fill" id="btnRescore">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
                 Rescore
             </button>
         </div>
     </header>
 
-    <main class="container">
-        <!-- Stats row -->
-        <section class="stats-row" id="statsRow">
-            <div class="stat-card stat-score">
-                <div class="stat-value" id="avgScore">—</div>
-                <div class="stat-label">Avg Trust Score</div>
-                <div class="stat-bar"><div class="stat-bar-fill" id="avgScoreBar"></div></div>
-            </div>
-            <div class="stat-card stat-total">
-                <div class="stat-value" id="totalAssets">—</div>
-                <div class="stat-label">Data Assets</div>
-            </div>
-            <div class="stat-card stat-healthy">
-                <div class="stat-value" id="healthyCount">—</div>
-                <div class="stat-label">Healthy (≥70)</div>
-            </div>
-            <div class="stat-card stat-warning">
-                <div class="stat-value" id="warningCount">—</div>
-                <div class="stat-label">Warning (40–69)</div>
-            </div>
-            <div class="stat-card stat-critical">
-                <div class="stat-value" id="criticalCount">—</div>
-                <div class="stat-label">Critical (&lt;40)</div>
-            </div>
-        </section>
+    <main class="page">
 
-        <!-- Charts row -->
-        <section class="charts-row">
-            <div class="card chart-card">
-                <div class="card-header">
-                    <h2>Trust Score Distribution</h2>
-                    <span class="card-subtitle">Current snapshot across all assets</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="distributionChart"></canvas>
-                </div>
+        <!-- Sync Strip -->
+        <div class="sync-strip" id="syncStrip">
+            <div class="sync-icon"></div>
+            <div class="sync-item">Custom Properties <span class="sync-val" id="syncProps">—</span></div>
+            <div class="sync-sep"></div>
+            <div class="sync-item">Webhooks <span class="sync-val" id="syncHook">—</span></div>
+            <div class="sync-sep"></div>
+            <div class="sync-item">Writeback <span class="sync-val" id="syncWb">—</span></div>
+            <div class="sync-right">
+                <a href="#" id="omLink" target="_blank">Open OpenMetadata →</a>
             </div>
-            <div class="card chart-card">
-                <div class="card-header">
-                    <h2>Signal Breakdown</h2>
-                    <span class="card-subtitle">Average scores by dimension</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="radarChart"></canvas>
-                </div>
-            </div>
-        </section>
+        </div>
 
-        <!-- Time Machine -->
-        <section class="card timemachine-card" id="timeMachineSection" style="display:none">
-            <div class="card-header">
-                <h2>🕰️ Trust Time Machine</h2>
-                <span class="card-subtitle" id="tmSubtitle">Historical trust trend</span>
-                <button class="btn-close-tm" id="btnCloseTm">✕</button>
-            </div>
-            <div class="chart-container chart-wide">
-                <canvas id="timeChart"></canvas>
-            </div>
-        </section>
+        <!-- Row 1: Trust Pulse + Stats -->
+        <div class="bento">
 
-        <!-- Asset table -->
-        <section class="card table-card">
-            <div class="card-header">
-                <h2>Asset Trust Scores</h2>
-                <div class="table-controls">
-                    <input type="text" class="search-input" id="searchInput"
-                           placeholder="Filter assets..." autocomplete="off">
-                    <select class="filter-select" id="gradeFilter">
-                        <option value="all">All Grades</option>
-                        <option value="A">A (≥90)</option>
-                        <option value="B">B (75–89)</option>
-                        <option value="C">C (60–74)</option>
-                        <option value="D">D (40–59)</option>
-                        <option value="F">F (&lt;40)</option>
-                    </select>
+            <!-- Trust Pulse — hero card -->
+            <div class="b-card pulse-card span-5" id="pulseCard">
+                <div class="pulse-ring-wrap">
+                    <div class="pulse-ring" id="pulseRing">
+                        <div class="pulse-ring-inner">
+                            <div>
+                                <div class="pulse-score" id="pulseScore">—</div>
+                                <div class="pulse-label">Trust</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pulse-meta">
+                    <div class="pulse-title">Platform Trust Pulse</div>
+                    <div class="pulse-desc" id="pulseDesc">Connecting to OpenMetadata to compute trust scores across all data assets…</div>
+                    <div class="pulse-tags" id="pulseTags"></div>
                 </div>
             </div>
-            <div class="table-wrapper">
-                <table class="trust-table" id="trustTable">
-                    <thead>
-                        <tr>
-                            <th class="sortable" data-sort="name">Asset Name</th>
-                            <th class="sortable" data-sort="score">Score</th>
-                            <th class="sortable" data-sort="grade">Grade</th>
+
+            <!-- Stat Tiles — 5+2+2+2+1 = 12 cols -->
+            <div class="b-card stat-tile st-primary span-2">
+                <div class="st-value" id="stTotal">—</div>
+                <div class="st-label">Data Assets</div>
+            </div>
+            <div class="b-card stat-tile st-healthy span-2">
+                <div class="st-value" id="stHealthy">—</div>
+                <div class="st-label">Healthy ≥70</div>
+                <div class="st-bar"><div class="st-bar-fill" id="barHealthy" style="width:0;background:var(--healthy)"></div></div>
+            </div>
+            <div class="b-card stat-tile st-warn span-2">
+                <div class="st-value" id="stWarn">—</div>
+                <div class="st-label">Warning</div>
+            </div>
+            <div class="b-card stat-tile st-danger" style="grid-column:span 1">
+                <div class="st-value" id="stCrit">—</div>
+                <div class="st-label">Critical</div>
+            </div>
+
+            <!-- Fix First — actionable -->
+            <div class="b-card fix-card span-4">
+                <div class="b-title">🔧 Fix First <span class="b-sub">— highest impact actions</span></div>
+                <div id="fixList">
+                    <div class="fix-item">
+                        <div class="fix-icon med">…</div>
+                        <div class="fix-text"><strong>Loading recommendations…</strong><p>Analyzing your metadata hygiene</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distribution Chart -->
+            <div class="b-card chart-card span-5">
+                <div class="b-title">Trust Distribution <span class="b-sub">— grade breakdown</span></div>
+                <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+            </div>
+
+            <!-- Signal Radar -->
+            <div class="b-card radar-card span-3">
+                <div class="b-title">Signal Radar</div>
+                <div class="chart-wrap" style="height:200px"><canvas id="radarChart"></canvas></div>
+            </div>
+
+            <!-- Time Machine (hidden until activated) -->
+            <div class="b-card tm-card span-12" id="tmCard">
+                <div class="tm-header">
+                    <div class="b-title">📈 Trust Trend <span class="b-sub" id="tmName"></span></div>
+                    <button class="tm-close" id="tmClose">✕</button>
+                </div>
+                <div class="tm-chart"><canvas id="tmChart"></canvas></div>
+            </div>
+
+            <!-- Asset Table -->
+            <div class="b-card table-card span-12">
+                <div class="table-header">
+                    <div class="b-title">Asset Trust Scores</div>
+                    <div class="table-controls">
+                        <input type="text" class="t-input" id="searchInput" placeholder="Search assets…" autocomplete="off">
+                        <select class="t-select" id="gradeFilter">
+                            <option value="all">All</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="F">F</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="data-table" id="dataTable">
+                        <thead><tr>
+                            <th class="sort" data-sort="name">Asset</th>
+                            <th class="sort" data-sort="score">Score</th>
+                            <th class="sort" data-sort="grade">Grade</th>
                             <th>Quality</th>
                             <th>Governance</th>
                             <th>Lineage</th>
                             <th>Freshness</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <tr><td colspan="8" class="loading-row">Loading scores...</td></tr>
-                    </tbody>
-                </table>
+                            <th></th>
+                        </tr></thead>
+                        <tbody id="tableBody">
+                            <tr><td colspan="8" class="empty-row">Loading scores…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </section>
+
+        </div><!-- /bento -->
     </main>
 
     <footer class="footer">
-        <span>DataTrust Engine · Built for the OpenMetadata Hackathon</span>
-        <span>Powered by <a href="https://open-metadata.org" target="_blank">OpenMetadata</a> APIs</span>
+        <span>DataTrust Engine · OpenMetadata Hackathon</span>
+        <span>Powered by <a href="https://open-metadata.org" target="_blank">OpenMetadata</a> · Custom Properties · Webhooks · Governance</span>
     </footer>
 
     <script src="js/app.js"></script>
