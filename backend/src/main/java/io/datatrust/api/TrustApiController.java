@@ -43,6 +43,7 @@ public class TrustApiController {
 
         // Engine control
         app.post("/api/engine/run", this::triggerRun);
+        app.post("/api/engine/simulate-incident", this::simulateIncident);
         app.get("/api/engine/status", this::getStatus);
         app.get("/api/engine/weights", this::getWeights);
 
@@ -86,6 +87,15 @@ public class TrustApiController {
     private void triggerRun(Context ctx) {
         engine.runOnce();
         ctx.json(Map.of("status", "triggered", "message", "Scoring cycle started"));
+    }
+
+    private void simulateIncident(Context ctx) {
+        var incident = engine.simulateIncident();
+        if (incident != null) {
+            ctx.json(Map.of("status", "triggered", "message", "Incident simulated on " + incident.displayName()));
+        } else {
+            ctx.status(400).json(Map.of("error", "No tables available"));
+        }
     }
 
     private void getStatus(Context ctx) {

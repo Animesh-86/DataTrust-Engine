@@ -103,6 +103,7 @@ java -jar target/datatrust-engine-1.0.0.jar
 | `GET` | `/api/scores/{fqn}` | Single table with full breakdown |
 | `GET` | `/api/scores/{fqn}/history` | Historical trust trend (Time Machine) |
 | `POST` | `/api/engine/run` | Trigger an on-demand scoring cycle |
+| `POST` | `/api/engine/simulate-incident` | Forces a table's score to drop to trigger alerts |
 | `GET` | `/api/engine/status` | Engine health and configuration |
 | `GET` | `/api/health` | Service health check |
 
@@ -119,6 +120,17 @@ DataTrust Engine leverages these OpenMetadata APIs:
 - **`GET /api/v1/system/version`** — Health check and version verification
 
 Every signal in the trust score comes directly from OpenMetadata's own metadata catalog.
+
+---
+
+## Live Demo Mode (Hackathon Feature)
+
+To easily demonstrate the complete architecture during judging without manually corrupting data in OpenMetadata, use the **Simulate Incident** button in the dashboard top navigation. 
+
+Clicking this button will:
+1. Instantly drop the Trust Score of a table down to **15.0 (Critical)**.
+2. Fire a webhook to your configured Slack channel.
+3. Use the OM Feed API to automatically create a **Data Quality Task** inside OpenMetadata assigned to the table owner.
 
 ---
 

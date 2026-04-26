@@ -35,6 +35,7 @@
         setInterval(syncStatus, 60000);
 
         document.getElementById('btnRescore').addEventListener('click', rescore);
+        document.getElementById('btnSimulate').addEventListener('click', simulateIncident);
         document.getElementById('searchInput').addEventListener('input', renderTable);
         document.getElementById('gradeFilter').addEventListener('change', renderTable);
         document.getElementById('tmClose').addEventListener('click', closeTm);
@@ -102,6 +103,16 @@
             await fetch(API + '/api/engine/run', { method: 'POST' });
             setTimeout(() => { poll(); syncStatus(); b.disabled = false; b.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Rescore'; }, 3500);
         } catch { b.disabled = false; b.textContent = 'Retry'; }
+    }
+
+    async function simulateIncident() {
+        const b = document.getElementById('btnSimulate');
+        const orig = b.innerHTML;
+        b.disabled = true; b.textContent = 'Triggering...';
+        try {
+            await fetch(API + '/api/engine/simulate-incident', { method: 'POST' });
+            setTimeout(() => { poll(); syncStatus(); b.disabled = false; b.innerHTML = orig; }, 1500);
+        } catch { b.disabled = false; b.textContent = 'Failed'; setTimeout(()=>b.innerHTML = orig, 2000); }
     }
 
     /* ---- Trust Pulse ---- */

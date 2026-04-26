@@ -108,7 +108,7 @@ public class TrustScoreEngine {
                     
                     // Trigger alerts if necessary
                     if (alertManager != null) {
-                        var oldScore = store.getLatest(asset.fullyQualifiedName());
+                        var oldScore = getScoreForTable(asset.fullyQualifiedName());
                         alertManager.evaluateScore(score, oldScore);
                     }
                 } catch (Exception e) {
@@ -205,5 +205,50 @@ public class TrustScoreEngine {
     public void shutdown() {
         scheduler.shutdown();
         store.close();
+    }
+
+    /**
+     * Artificial trigger for Hackathon demos.
+     * Takes the first table, artificially drops its score, and fires the webhook/task.
+     */
+    public TrustScore simulateIncident() {
+        var scoresList = getLatestScores();
+        if (scoresList == null || scoresList.isEmpty()) return null;
+        
+        var scores = new ArrayList<TrustScore>();
+        TrustScore targetScore = null;
+        TrustScore originalTargetScore = null;
+        
+        // Drop ALL tables to 0.0 for a dramatic visual crash in the dashboard
+        for (int i = 0; i < scoresList.size(); i++) {
+            var originalScore = scoresList.get(i);
+            var incidentScore = new TrustScore(
+                originalScore.tableId(),
+                originalScore.fullyQualifiedName(),
+                originalScore.displayName(),
+                0.0, // Absolute zero
+                originalScore.breakdown(),
+                "Critical",
+                java.time.Instant.now()
+            );
+            scores.add(incidentScore);
+            if (i == 0) {
+                targetScore = incidentScore;
+                originalTargetScore = originalScore;
+            }
+        }
+        
+        // Update cache so UI sees it instantly
+        latestScores.set(Collections.unmodifiableList(scores));
+        
+        // Save to DB so the Trend Chart sees the massive drop
+        store.saveBatch(scores);
+        
+        if (alertManager != null && targetScore != null) {
+            log.info("Simulating incident for table: {}", targetScore.fullyQualifiedName());
+            alertManager.evaluateScore(targetScore, originalTargetScore);
+        }
+        
+        return targetScore;
     }
 }

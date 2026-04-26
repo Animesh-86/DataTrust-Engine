@@ -167,6 +167,11 @@
                     <h3>Incident Response <span class="badge">Auto-Task</span></h3>
                     <p>If a table's score drops below the Critical Threshold (e.g., 50/100), the engine acts. It automatically sends a webhook to Slack, and uses the OM Feed API to instantly create a <strong>Data Quality Task</strong> assigned to the table owner.</p>
                 </div>
+
+                <div class="expl-card" style="border-color: var(--danger);">
+                    <h3>Live Demo Mode <span class="badge" style="background: var(--danger-soft); color: var(--danger);">Simulate Incident</span></h3>
+                    <p>For hackathon judging, the dashboard includes a red <strong>Simulate Incident</strong> button. Clicking this instantly forces a table's score down to a critical level, proving the entire end-to-end incident response loop (Slack + OM Auto-Task) without requiring manual data manipulation.</p>
+                </div>
             </div>
             
         </div>
