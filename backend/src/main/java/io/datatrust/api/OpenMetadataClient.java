@@ -71,14 +71,15 @@ public class OpenMetadataClient {
 
             try (var resp = http.newCall(req).execute()) {
                 if (!resp.isSuccessful()) {
-                    throw new RuntimeException("Auth failed (" + resp.code() + "): " + resp.body().string());
+                    log.error("Auth failed ({}): {} - Running in disconnected mode", resp.code(), resp.body().string());
+                    return;
                 }
                 var json = mapper.readTree(resp.body().string());
                 this.jwtToken = json.path("accessToken").asText();
                 log.info("Authenticated with OpenMetadata as '{}'", user);
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot connect to OpenMetadata at " + baseUrl, e);
+        } catch (Exception e) {
+            log.error("Cannot connect to OpenMetadata at {} - Running in disconnected mode", baseUrl);
         }
     }
 
