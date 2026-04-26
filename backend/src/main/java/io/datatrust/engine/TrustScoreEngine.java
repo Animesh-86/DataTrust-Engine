@@ -14,8 +14,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The heart of DataTrust — orchestrates signal collection,
- * score computation, persistence, and OM writeback on a scheduled loop.
+ * Main loop for the engine! This grabs data, calculates scores, saves to SQLite, 
+ * and writes back to OpenMetadata.
  */
 public class TrustScoreEngine {
     private static final Logger log = LoggerFactory.getLogger(TrustScoreEngine.class);
@@ -60,8 +60,7 @@ public class TrustScoreEngine {
     }
 
     /**
-     * Start the scoring loop. First run happens immediately,
-     * subsequent runs on the configured interval.
+     * Start the scoring loop. Runs immediately, then repeats.
      */
     public void start() {
         log.info("Starting TrustScore engine (interval={}min)", intervalMinutes);
@@ -83,7 +82,7 @@ public class TrustScoreEngine {
         try {
             log.info("=== Trust scoring cycle started ===");
 
-            // 1) Fetch all tables from OpenMetadata
+            // 1) Grab all tables from the OM API
             var rawTables = client.listAllTables();
             if (rawTables.isEmpty()) {
                 log.warn("No tables found in OpenMetadata — is sample data ingested?");
@@ -99,7 +98,7 @@ public class TrustScoreEngine {
 
             log.info("Scoring {} tables...", assets.size());
 
-            // 3) Compute scores
+            // 3) Math time - calculate scores
             var scores = new ArrayList<TrustScore>();
             for (var asset : assets) {
                 try {
@@ -116,7 +115,7 @@ public class TrustScoreEngine {
                 }
             }
 
-            // 4) Persist locally
+            // 4) Save to local SQLite database so the UI chart works
             store.saveBatch(scores);
             latestScores.set(Collections.unmodifiableList(scores));
 
@@ -219,7 +218,7 @@ public class TrustScoreEngine {
         TrustScore targetScore = null;
         TrustScore originalTargetScore = null;
         
-        // Drop ALL tables to 0.0 for a dramatic visual crash in the dashboard
+        // Hackathon demo trick: crush all scores to 0 so the dashboard looks crazy when judges click the button
         for (int i = 0; i < scoresList.size(); i++) {
             var originalScore = scoresList.get(i);
             var incidentScore = new TrustScore(

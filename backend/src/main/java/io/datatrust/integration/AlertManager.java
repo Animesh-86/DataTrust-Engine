@@ -13,10 +13,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Monitors trust scores and sends alerts if scores drop below critical thresholds.
- * Features:
- * 1. Posts to an OM Feed (Table Conversation) so owners see it in OpenMetadata.
- * 2. Sends a Slack webhook message.
+ * Keeps an eye on the trust scores and yells at people when they drop.
+ * 1. Posts a message to the OM feed so owners see it.
+ * 2. Shoots a message to Slack so everyone panics.
  */
 public class AlertManager {
     private static final Logger log = LoggerFactory.getLogger(AlertManager.class);
@@ -28,7 +27,7 @@ public class AlertManager {
     private final OkHttpClient http;
     private final ObjectMapper mapper;
 
-    // Cache to prevent spamming alerts for the same asset repeatedly
+    // Stop the bot from spamming Slack every 5 minutes
     private final Map<String, Long> lastAlertTimes = new HashMap<>();
     private static final long ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 24; // 24 hours
 
@@ -49,7 +48,7 @@ public class AlertManager {
     }
 
     public void evaluateScore(TrustScore newScore, TrustScore oldScore) {
-        // Only alert if we've dropped below the critical threshold
+        // Only alert if the score is actually bad
         if (newScore.overallScore() >= criticalThreshold) {
             return;
         }
