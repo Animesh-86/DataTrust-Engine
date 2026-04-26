@@ -39,6 +39,8 @@ public class OpenMetadataClient {
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
+                .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                        .header("ngrok-skip-browser-warning", "true").build()))
                 .build();
         authenticate(user, password);
     }
@@ -50,6 +52,8 @@ public class OpenMetadataClient {
         this.http = new OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                        .header("ngrok-skip-browser-warning", "true").build()))
                 .build();
         this.jwtToken = botToken;
         log.info("Using bot token for authentication");
