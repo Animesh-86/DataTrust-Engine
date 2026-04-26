@@ -80,7 +80,7 @@ services:
 
   datatrust-engine:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
     environment:
       OM_SERVER_URL: http://openmetadata-server:8585
