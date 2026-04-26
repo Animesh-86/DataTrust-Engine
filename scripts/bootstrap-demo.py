@@ -2,12 +2,17 @@ import requests
 import json
 import time
 
+import base64
+
 OM_URL = "http://localhost:8585/api/v1"
-AUTH = ('admin', 'admin')
+ADMIN_EMAIL = "admin@open-metadata.org"
+ADMIN_PASS = "admin"
 
 # 1. Login to get JWT Token
 print("Authenticating with OpenMetadata...")
-login_payload = {"email": "admin@open-metadata.org", "password": "admin"}
+# OpenMetadata 1.12+ requires password to be Base64 encoded in the JSON body
+encoded_pass = base64.b64encode(ADMIN_PASS.encode('utf-8')).decode('utf-8')
+login_payload = {"email": ADMIN_EMAIL, "password": encoded_pass}
 try:
     resp = requests.post(f"{OM_URL}/users/login", json=login_payload)
     resp.raise_for_status()
@@ -50,8 +55,8 @@ tables = [
         "description": "Dimension table for customer accounts.",
         "columns": [
             {"name": "customer_id", "dataType": "INT"},
-            {"name": "email", "dataType": "VARCHAR"},
-            {"name": "status", "dataType": "VARCHAR"}
+            {"name": "email", "dataType": "VARCHAR", "dataLength": 255},
+            {"name": "status", "dataType": "VARCHAR", "dataLength": 50}
         ]
     },
     {
@@ -67,9 +72,9 @@ tables = [
         "name": "stg_stripe_payments",
         "description": "Raw staging table for Stripe payments. Low quality.",
         "columns": [
-            {"name": "payment_id", "dataType": "VARCHAR"},
+            {"name": "payment_id", "dataType": "VARCHAR", "dataLength": 255},
             {"name": "order_id", "dataType": "INT"},
-            {"name": "status", "dataType": "VARCHAR"}
+            {"name": "status", "dataType": "VARCHAR", "dataLength": 50}
         ]
     }
 ]
